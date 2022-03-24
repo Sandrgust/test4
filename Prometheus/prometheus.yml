@@ -1,0 +1,46 @@
+---
+global:
+  scrape_interval:     15s
+
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets: ['localhost:9093']
+
+rule_files:
+  - rule.yml
+
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+    - targets: ['localhost:9090']
+
+  - job_name: 'node-1'
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+        - localhost:9100
+        - 178.154.222.220:9100
+        - 178.154.203.80:9100
+        - 178.154.220.43:9100
+        - 178.154.220.221:9100
+        - 178.154.221.106:9100
+
+  - job_name: 'postgre'
+    scheme: http
+    scrape_interval: 10s
+    scrape_timeout: 10s
+    static_configs:
+      - targets:
+        - 178.154.222.220:9187
+        - 178.154.220.221:9187
+
+  - job_name: 'cadvisor'
+    scheme: http
+    scrape_interval: 10s
+    scrape_timeout: 10s
+    static_configs:
+      - targets:
+        - 178.154.222.220:9200
+        - 178.154.220.221:9200

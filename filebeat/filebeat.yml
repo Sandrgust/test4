@@ -1,0 +1,31 @@
+filebeat.modules:
+- module: system
+  syslog:
+    enabled: true
+
+    # Set custom paths for the log files. If left empty,
+    # Filebeat will choose the paths depending on your OS.
+    var.paths: ["/var/log/messages"]
+
+    # Convert the timestamp to UTC. Requires Elasticsearch >= 6.1.
+    var.convert_timezone: true
+
+  # Authorization logs
+  auth:
+    enabled: true
+
+    # Set custom paths for the log files. If left empty,
+    # Filebeat will choose the paths depending on your OS.
+    var.paths: ["/var/log/secure"]
+
+    # Convert the timestamp to UTC. Requires Elasticsearch >= 6.1.
+    var.convert_timezone: true
+
+output.elasticsearch:
+  hosts: ["178.154.203.80:9200"]
+  
+filebeat.inputs:
+  - type: container
+    paths:
+      - "/var/lib/docker/containers/*/*.log"
+

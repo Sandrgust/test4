@@ -1,0 +1,13 @@
+---
+version: "3.9"
+services:
+  filebeat:
+    container_name: filebeat
+    image: docker.elastic.co/beats/filebeat:7.12.0
+    user: root
+    volumes:
+      - /usr/server/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/log/messages:/var/log/messages:ro
+      - /var/log/secure:/var/log/secure:ro
+      - /var/lib/docker/containers/:/var/lib/docker/containers/:ro
+

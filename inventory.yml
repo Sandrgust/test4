@@ -1,0 +1,16 @@
+---
+all:
+  hosts:
+    DEV:
+      ansible_host: 178.154.222.220 
+      ansible_ssh_user: lysenko
+      ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+    PROD:
+      ansible_host: 178.154.220.221
+      ansible_ssh_user: lysenko
+      ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+  
+
+    

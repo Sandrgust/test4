@@ -1,0 +1,45 @@
+---
+groups:
+  - name: alert_rules
+    rules:
+        
+     - alert: InstanceDown
+       expr: up == 0
+       for: 1m
+       labels:
+         severity: critical
+       annotations:
+         summary: "Instance [{{ $labels.instance }}] down"
+         description: "[{{ $labels.instance }}] of job [{{ $labels.job }}] has been down for more than 1 minute."
+
+     - alert: Elasticsearch disk out of space
+       description: The disk usage is over 90%
+       query: 'elasticsearch_filesystem_data_available_bytes / elasticsearch_filesystem_data_size_bytes * 100 < 10'
+       severity: critical      
+ 
+
+     - alert: DiskSpaceFree20Percent
+       expr: node_filesystem_free_percent <= 20
+       labels:
+          severity: critical
+       annotations:
+          summary: "Instance [{{ $labels.instance }}] has 20% or less free disk space"
+          description: "[{{ $labels.instance }}] has only {{ $value }}% or less free."
+
+     - alert: RAMUsageFree20Percent
+       expr: ((node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) or ((node_memory_MemFree_bytes + node_memory_Buffers_bytes + node_memory_Cached_bytes) / node_memory_MemTotal_bytes)) * 100 <= 20
+       labels:
+          severity: critical
+       annotations:
+          summary: "Instance [{{ $labels.instance }}] has 20% or less free RAM memory"
+          description: "[{{ $labels.instance }}] has only {{ $value }}% or less free."
+
+     - alert: Prometheus target missing
+       description: A Prometheus target has disappeared. An exporter might be crashed.
+       query: 'up == 0'
+       severity: critical
+
+     - alert: Prometheus all targets missing
+       description: A Prometheus job does not have living target anymore.
+       query: 'count by (job) (up) == 0'
+       severity: critical

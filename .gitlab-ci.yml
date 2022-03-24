@@ -1,0 +1,95 @@
+stages:
+  - build
+  - deploy
+  - test
+ 
+Build_dockerfile_save:
+  stage: build
+  services:
+  - docker:dind
+  image: docker
+  script:
+    - |
+      docker login "$CI_REGISTRY" \
+      --username "$CI_REGISTRY_USER" \
+      --password "$CI_REGISTRY_PASSWORD"
+
+      docker build \
+        --file "Dockerfile" \
+        --tag "$CI_REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_REF_SLUG" .
+
+      docker push "$CI_REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_REF_SLUG"
+      
+
+deploy_stage:
+  stage: deploy
+  image: ansible/ansible-runner
+  before_script:
+    ## Install ssh-agent if not already installed, it is required by Docker.
+    - 'command -v ssh-agent >/dev/null || ( yum update -y && yum install openssh-client -y )'
+
+    ## Run ssh-agent (inside the build environment)
+    - eval $(ssh-agent -s)
+
+    ## Add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
+    ## We're using tr to fix line endings which makes ed25519 keys work
+    ## without extra base64 encoding.
+    ## https://gitlab.com/gitlab-examples/ssh-private-key/issues/1#note_48526556
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+
+    ## Create the SSH directory and give it the right permissions
+    # - mkdir -p ~/.ssh
+    # - chmod 700 ~/.ssh
+
+    - sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+    - sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+    - umask 022
+    - sudo pip3 install docker
+    - ansible-galaxy collection install -r requirements.yml  
+  script:
+    - echo $CI_COMMIT_BRANCH
+    - echo "$CONTAINER_RELEASE_IMAGE"
+    - ansible-playbook playbook.yml -i inventory.yml -l "$CI_COMMIT_BRANCH"
+        -e "server_type=$CI_COMMIT_BRANCH" 
+        -e "server_image=$CONTAINER_IMAGE_NAME" 
+        -e "docker_user=$CI_REGISTRY_USER" 
+        -e "docker_password=$CI_REGISTRY_PASSWORD" 
+        -e "docker_registry=$CI_REGISTRY"
+
+linter:
+  stage: test
+  only:
+    - PROD
+    - DEV
+  image: python:latest
+  script:
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install psycopg2-binary
+    - pip install pylint
+    - pylint -E app.py
+
+jmeter:
+  stage: test
+  image: ansible/ansible-runner
+  tags:
+    - DEV
+  only:
+    - DEV
+  before_script:
+    - sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+    - sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+    - yum install java-11-openjdk wget -y
+    - wget https://apache-mirror.rbc.ru/pub/apache//jmeter/binaries/apache-jmeter-5.4.1.tgz
+    - tar zxvf apache-jmeter-5.4.1.tgz
+    - mv apache-jmeter-*/ /opt/jmeter
+    - export JMETER_HOME=/opt/jmeter
+    - export PATH=$JMETER_HOME/bin:$PATH
+  script:
+    - sleep 10
+    - jmeter -n -t 'jmetr/test.jmx' -l log.txt -e -o 'jmeter.report'
+  artifacts:
+    paths:
+    - jmeter_report  
+
+

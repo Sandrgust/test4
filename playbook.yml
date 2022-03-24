@@ -1,0 +1,178 @@
+---
+- hosts: all
+  gather_facts: true
+  become: yes
+  vars:
+    app_path: /home/lysenko
+  tasks:
+  
+    - name: "copy docker"
+      copy:
+        src: "Dockerfile"
+        dest: "{{ app_path }}/Dockerfile"
+        owner: "root"
+        group: "root"
+        mode: 0644
+
+    - name: copy docker-compose.yml
+      copy:
+        src: "docker-compose.yml"
+        dest: "{{ app_path }}/docker-compose.yml"
+        owner: "root"
+        group: "root"
+        mode: 0644
+
+    - name: postgres-develop.env
+      copy:
+        src: "postgres-develop.env"
+        dest: "{{ app_path }}/postgres-develop.env"
+        owner: "root"
+        group: "root"
+        mode: 0644
+
+    
+
+    - name: copy req
+      copy:
+        src: "requirements.txt"
+        dest: "{{ app_path }}/requirements.txt"
+        owner: "root"
+        group: "root"
+        mode: 0644
+
+    - name: copy app
+      copy:
+        src: "app.py"
+        dest: "{{ app_path }}/app.py"
+        owner: "root"
+        group: "root"
+        mode: 0644
+
+
+    - name: sed1
+      raw: sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+      become: yes
+
+    - name : sed2  
+      raw: sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+      become: yes
+
+    - name: Upgrade all packages
+      yum: name=* state=latest
+      become: yes
+
+    - name: sed1
+      raw: sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+      become: yes
+
+    - name : sed2  
+      raw: sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+      become: yes
+
+
+
+    - name: Install a list of packages (suitable replacement for 2.11 loop deprecation warning)
+      raw: yum install curl -y
+      become: yes
+
+
+    - name: Check if Docker is installed
+      command: systemctl status docker
+      register: docker_check
+      ignore_errors: yes
+
+    - name: Download the Docker installer
+      get_url:
+        url: https://get.docker.com/
+        dest: /root/install_docker.sh
+        mode: 0700
+      when: docker_check.stderr.find('service could not be found') != -1
+
+    - name: Install Docker
+      shell: /root/install_docker.sh
+      when: docker_check.stderr.find('service could not be found') != -1
+
+    - name: Remove the Docker installer file.
+      file:
+        state: absent
+        path: /root/install_docker.sh
+
+    - name: Enable the Docker daemon in systemd
+      systemd:
+        name: docker
+        enabled: yes
+        masked: no
+
+    - name: Start the Docker daemon
+      systemd:
+        name: docker
+        state: started
+        masked: no
+
+    - name: Check if Docker Compose is installed
+      command: docker-compose --version
+      register: docker_compose_check
+      ignore_errors: yes
+
+    - name: Download and install Docker Compose
+      get_url:
+        url: https://github.com/docker/compose/releases/download/v2.2.3/docker-compose-linux-x86_64
+        dest: /usr/bin/docker-compose
+        mode: 0755
+      when:
+        - docker_compose_check.msg is defined
+        - docker_compose_check.msg.find('No such file or directory') != -1
+
+    - name: "copy daemon.json"
+      copy:
+        src: "daemon.json"
+        dest: "/etc/docker/daemon.json"
+        owner: "root"
+        group: "root"
+        mode: 0644
+      become: yes
+      become_method: sudo
+
+    - name: "restart "
+      command: service docker restart
+      become: yes
+    
+       
+    - name: "start "
+      command: docker-compose build 
+      become: yes
+       
+    - name: "start up"
+      command: docker-compose up -d --remove-orphans
+      become: yes
+
+   
+    - name: "tag1"
+      command: docker tag postgres:12.2-alpine 178.154.220.43:5000/postgres:12.2-alpine
+      become: yes
+    - name: "push1"
+      command:  docker  push 178.154.220.43:5000/postgres:12.2-alpine
+      become: yes
+ 
+    - name: "tag2"
+      command: docker tag flask:latest 178.154.220.43:5000/flask:latest
+      become: yes
+    - name: "push2"
+      command:  docker push 178.154.220.43:5000/flask:latest
+      become: yes
+    
+    - name: "tag3"
+      command: docker tag python:3.9 178.154.220.43:5000/python:3.9
+      become: yes
+    - name: "push3"
+      command:  docker push 178.154.220.43:5000/python:3.9
+      become: yes
+      become_method: sudo  
+  
+    
+
+
+
+
+
+
